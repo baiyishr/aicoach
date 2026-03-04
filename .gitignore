@@ -1,0 +1,11 @@
+models/
+data/sessions.db
+data/references/
+data/uploads/
+data/settings.json
+data/.keyfile
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+.claude/

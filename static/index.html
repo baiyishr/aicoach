@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Coach — Tennis</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script type="module">
+    import { PoseLandmarker, FilesetResolver } from
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+    window.PoseLandmarker = PoseLandmarker;
+    window.FilesetResolver = FilesetResolver;
+  </script>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">🎾</div>
+    <h1>AI Coach</h1>
+    <span class="subtitle">Tennis</span>
+  </div>
+
+  <ul class="nav-links">
+    <li><a href="#" data-page="analyze" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/></svg>
+      Analyze
+    </a></li>
+    <li><a href="#" data-page="references">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      References
+    </a></li>
+    <li><a href="#" data-page="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      History
+    </a></li>
+    <li><a href="#" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      Settings
+    </a></li>
+  </ul>
+
+  <div class="sidebar-footer">
+    <div id="status-api" class="status-badge status-warn">No API key</div>
+    <div id="status-refs" class="status-badge status-info">0 references</div>
+  </div>
+</nav>
+
+<!-- Main content -->
+<main id="main">
+
+  <!-- Analyze page -->
+  <section id="page-analyze" class="page active">
+    <div class="page-header">
+      <h2>Analyze Student</h2>
+      <p class="page-desc">Import a student's video, detect strokes, compare against a pro reference, and get AI coaching feedback.</p>
+    </div>
+
+    <div id="analyze-no-refs" class="callout callout-warn" style="display:none;">
+      No pro reference profiles found. Go to <a href="#" onclick="navigate('references')">References</a> to import a pro video first.
+    </div>
+
+    <div id="analyze-main">
+      <!-- Step 1: Select video + player -->
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <h3>Select Student Video</h3>
+        </div>
+        <div class="file-picker">
+          <input type="file" id="student-video-file" accept="video/*" class="file-input" onchange="handleVideoFile(this, 'student')">
+          <label for="student-video-file" class="btn btn-secondary file-label">Choose File</label>
+          <input type="text" id="student-video-path" placeholder="Choose a video file..." class="input" readonly>
+          <button onclick="previewPeople('student')" class="btn btn-primary" id="btn-preview-student">Preview &amp; Select Player</button>
+        </div>
+        <div class="youtube-picker">
+          <input type="text" id="student-youtube-url" placeholder="Or paste a YouTube URL..." class="input">
+          <button onclick="downloadYouTube('student')" class="btn btn-secondary" id="btn-yt-student">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right:4px;vertical-align:middle"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.7 31.7 0 0 0 0 12a31.7 31.7 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.7 31.7 0 0 0 24 12a31.7 31.7 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+            Download
+          </button>
+        </div>
+        <div id="student-upload-progress" class="progress-container" style="display:none;">
+          <div class="progress-bar"><div class="progress-fill" id="student-upload-fill"></div></div>
+          <span class="progress-label" id="student-upload-label">Uploading...</span>
+        </div>
+
+        <!-- Player selection -->
+        <div id="student-player-select" class="player-select-panel" style="display:none;">
+          <div class="frame-scrubber">
+            <label>Scan through video to find the player:</label>
+            <div class="scrubber-row">
+              <input type="range" id="student-frame-slider" min="0" max="100" value="0" class="slider"
+                     oninput="scrubFrame('student', this.value)">
+              <span class="scrubber-label" id="student-frame-label">Frame 0</span>
+            </div>
+          </div>
+          <div class="player-preview-row">
+            <canvas id="student-preview-canvas" class="player-preview-img"></canvas>
+            <div class="player-options" id="student-player-options"></div>
+          </div>
+          <button onclick="detectStrokes('student')" class="btn btn-primary" id="btn-detect-student">Detect Strokes for Selected Player</button>
+        </div>
+
+        <div id="student-progress" class="progress-container" style="display:none;">
+          <div class="progress-bar"><div class="progress-fill" id="student-progress-fill"></div></div>
+          <span class="progress-label" id="student-progress-label">Processing...</span>
+        </div>
+      </div>
+
+      <!-- Step 2: Review strokes -->
+      <div id="student-review" class="card" style="display:none;">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <h3>Review Detected Strokes</h3>
+          <span class="badge" id="student-stroke-count">0</span>
+        </div>
+        <div id="student-video-info" class="meta-line"></div>
+        <div id="student-strokes" class="stroke-grid"></div>
+      </div>
+
+      <!-- Step 3: Compare -->
+      <div id="student-compare-section" class="card" style="display:none;">
+        <div class="card-header">
+          <span class="step-badge">3</span>
+          <h3>Compare with Pro Reference</h3>
+        </div>
+        <div class="compare-controls">
+          <select id="compare-stroke-select" class="input"></select>
+          <button onclick="compareStroke()" class="btn btn-primary" id="btn-compare">Compare</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Results -->
+      <div id="compare-results" style="display:none;">
+        <!-- Snapshot + top issues -->
+        <div class="card-row">
+          <div class="card card-half">
+            <h3>Student Pose</h3>
+            <canvas id="compare-snapshot" class="snapshot-img"></canvas>
+          </div>
+          <div class="card card-half">
+            <h3>Key Differences</h3>
+            <div id="top-issues"></div>
+          </div>
+        </div>
+
+        <!-- Phase charts -->
+        <div class="card">
+          <h3>Phase-by-Phase Comparison</h3>
+          <div id="phase-charts"></div>
+        </div>
+
+        <!-- Full report -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Comparison Report</h3>
+            <button onclick="toggleCollapse('report-body')" class="btn btn-ghost btn-sm">Toggle</button>
+          </div>
+          <pre id="report-body" class="report-text"></pre>
+        </div>
+
+        <!-- AI Coaching -->
+        <div class="card">
+          <div class="card-header">
+            <h3>AI Coaching Feedback</h3>
+            <button onclick="getCoaching()" class="btn btn-primary" id="btn-coaching">Get AI Coaching</button>
+          </div>
+          <div id="coaching-loading" class="loading-spinner" style="display:none;">
+            <div class="spinner"></div>Generating feedback...
+          </div>
+          <div id="coaching-feedback" class="coaching-text"></div>
+          <button id="btn-save-session" class="btn btn-secondary" style="display:none;" onclick="saveSession()">Save to History</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- References page -->
+  <section id="page-references" class="page">
+    <div class="page-header">
+      <h2>Pro Reference Profiles</h2>
+      <p class="page-desc">Import pro tennis videos to build reference profiles for comparison.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchRefTab('import')">Import Pro Video</button>
+      <button class="tab" onclick="switchRefTab('manage')">Manage References</button>
+    </div>
+
+    <!-- Import tab -->
+    <div id="ref-tab-import" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <h3>Select Pro Video</h3>
+        </div>
+        <div class="file-picker">
+          <input type="file" id="ref-video-file" accept="video/*" class="file-input" onchange="handleVideoFile(this, 'ref')">
+          <label for="ref-video-file" class="btn btn-secondary file-label">Choose File</label>
+          <input type="text" id="ref-video-path" placeholder="Choose a video file..." class="input" readonly>
+          <button onclick="previewPeople('ref')" class="btn btn-primary" id="btn-preview-ref">Preview &amp; Select Player</button>
+        </div>
+        <div class="youtube-picker">
+          <input type="text" id="ref-youtube-url" placeholder="Or paste a YouTube URL..." class="input">
+          <button onclick="downloadYouTube('ref')" class="btn btn-secondary" id="btn-yt-ref">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right:4px;vertical-align:middle"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.7 31.7 0 0 0 0 12a31.7 31.7 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.7 31.7 0 0 0 24 12a31.7 31.7 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+            Download
+          </button>
+        </div>
+        <div id="ref-upload-progress" class="progress-container" style="display:none;">
+          <div class="progress-bar"><div class="progress-fill" id="ref-upload-fill"></div></div>
+          <span class="progress-label" id="ref-upload-label">Uploading...</span>
+        </div>
+
+        <!-- Player selection -->
+        <div id="ref-player-select" class="player-select-panel" style="display:none;">
+          <div class="frame-scrubber">
+            <label>Scan through video to find the player:</label>
+            <div class="scrubber-row">
+              <input type="range" id="ref-frame-slider" min="0" max="100" value="0" class="slider"
+                     oninput="scrubFrame('ref', this.value)">
+              <span class="scrubber-label" id="ref-frame-label">Frame 0</span>
+            </div>
+          </div>
+          <div class="player-preview-row">
+            <canvas id="ref-preview-canvas" class="player-preview-img"></canvas>
+            <div class="player-options" id="ref-player-options"></div>
+          </div>
+          <button onclick="detectStrokes('ref')" class="btn btn-primary" id="btn-detect-ref">Detect Strokes for Selected Player</button>
+        </div>
+
+        <div id="ref-progress" class="progress-container" style="display:none;">
+          <div class="progress-bar"><div class="progress-fill" id="ref-progress-fill"></div></div>
+          <span class="progress-label" id="ref-progress-label">Processing...</span>
+        </div>
+      </div>
+
+      <!-- Review -->
+      <div id="ref-review" class="card" style="display:none;">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <h3>Review Detected Strokes</h3>
+          <span class="badge" id="ref-stroke-count">0</span>
+        </div>
+        <div id="ref-video-info" class="meta-line"></div>
+        <div id="ref-strokes" class="stroke-grid"></div>
+      </div>
+
+      <!-- Build -->
+      <div id="ref-build" class="card" style="display:none;">
+        <div class="card-header">
+          <span class="step-badge">3</span>
+          <h3>Build Reference Profiles</h3>
+        </div>
+        <div id="ref-type-counts"></div>
+        <button onclick="buildReferences()" class="btn btn-primary" id="btn-build-refs">Build & Save Profiles</button>
+        <div id="ref-build-result"></div>
+      </div>
+    </div>
+
+    <!-- Manage tab -->
+    <div id="ref-tab-manage" class="tab-content">
+      <div class="card">
+        <div id="ref-list">Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- History page -->
+  <section id="page-history" class="page">
+    <div class="page-header">
+      <h2>Session History</h2>
+      <p class="page-desc">View past coaching sessions and feedback.</p>
+    </div>
+    <div id="history-list"></div>
+    <div id="history-empty" class="callout callout-info" style="display:none;">No past sessions yet. Analyze a student video to create one.</div>
+  </section>
+
+  <!-- Settings page -->
+  <section id="page-settings" class="page">
+    <div class="page-header">
+      <h2>Settings</h2>
+    </div>
+
+    <div class="card">
+      <h3>OpenRouter API Key</h3>
+      <p class="field-help">Get your key from <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></p>
+      <div class="field-row">
+        <input type="password" id="settings-api-key" placeholder="sk-or-..." class="input input-wide">
+        <button onclick="saveApiKey()" class="btn btn-primary">Save Key</button>
+      </div>
+      <div id="api-key-status" class="field-status"></div>
+    </div>
+
+    <div class="card">
+      <h3>Model Selection</h3>
+      <div class="field-row">
+        <select id="settings-model" class="input input-wide"></select>
+        <button onclick="fetchModels()" class="btn btn-secondary">Fetch Models</button>
+      </div>
+      <div class="field-row" style="margin-top: 0.5rem;">
+        <input type="text" id="settings-model-manual" placeholder="Or type model ID manually..." class="input input-wide">
+        <button onclick="saveManualModel()" class="btn btn-secondary">Set</button>
+      </div>
+      <div id="model-status" class="field-status"></div>
+    </div>
+
+    <div class="card">
+      <h3>Player Settings</h3>
+      <div class="field-row">
+        <label>Dominant Hand:</label>
+        <select id="settings-dominant" class="input" onchange="saveDominant()">
+          <option value="right">Right</option>
+          <option value="left">Left</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/pose-engine.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
