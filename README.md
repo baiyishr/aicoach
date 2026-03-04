@@ -12,36 +12,6 @@ AI Coach uses MediaPipe pose estimation running entirely in your browser to extr
 
 ---
 
-## How It Works
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Browser                                                │
-│  ┌──────────┐    ┌──────────────┐    ┌───────────────┐  │
-│  │  Video    │───▶│  MediaPipe   │───▶│  Landmarks    │  │
-│  │  (local)  │    │  WASM + GPU  │    │  + Angles     │  │
-│  └──────────┘    └──────────────┘    └───────┬───────┘  │
-│                                              │ JSON     │
-└──────────────────────────────────────────────┼──────────┘
-                                               ▼
-┌──────────────────────────────────────────────────────────┐
-│  Server (Python)                                         │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────┐  │
-│  │  Segment   │─▶│  Classify  │─▶│  Compare vs Pro    │  │
-│  │  Strokes   │  │  Stroke    │  │  Phase-by-Phase    │  │
-│  └────────────┘  └────────────┘  └─────────┬──────────┘  │
-│                                            ▼             │
-│                                  ┌────────────────────┐  │
-│                                  │  LLM Coaching      │  │
-│                                  │  (OpenRouter API)  │  │
-│                                  └────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
-
-**Video never leaves your machine.** Only numeric landmark coordinates are sent to the server.
-
----
-
 ## Features
 
 - **Browser-side pose detection** — MediaPipe runs in WebAssembly with GPU acceleration, no Python CV dependencies needed at runtime
@@ -81,61 +51,6 @@ Open **http://localhost:8000** in your browser.
 1. Go to **Settings** → paste your OpenRouter API key
 2. Go to **References** → import a pro tennis video → detect strokes → build reference profiles
 3. Go to **Analyze** → import a student video → detect strokes → compare against the pro → get AI coaching
-
----
-
-## Project Structure
-
-```
-aicoach/
-├── static/
-│   ├── pose-engine.js      # MediaPipe JS wrapper, angle computation, skeleton drawing
-│   ├── app.js               # Frontend logic — local video processing, UI state
-│   ├── index.html            # Single-page app
-│   └── style.css             # UI styling
-├── server.py                 # FastAPI backend — landmarks processing, comparison, coaching
-├── config.py                 # App configuration and constants
-├── pose/
-│   ├── detector.py           # MediaPipe Python wrapper (used for reference, not at runtime)
-│   ├── angles.py             # Joint angle computation
-│   ├── landmarks.py          # MediaPipe landmark constants
-│   └── drawing.py            # Skeleton overlay drawing
-├── detection/
-│   ├── segmenter.py          # Adaptive motion segmentation
-│   ├── classifier.py         # Stroke classification dispatcher
-│   └── reviewer.py           # Stroke review data structures
-├── comparison/
-│   ├── reference.py          # Build averaged pro reference profiles
-│   ├── alignment.py          # Phase detection and alignment
-│   ├── diff.py               # Angle difference computation
-│   └── report.py             # Text report generation
-├── sport/tennis/
-│   ├── phases.py             # Tennis-specific phase detection
-│   ├── classifier_rules.py   # Forehand/backhand/serve classification rules
-│   ├── strokes.py            # Stroke type definitions
-│   └── metrics.py            # Tennis-specific metrics
-├── llm/
-│   ├── client.py             # OpenRouter API client
-│   ├── models.py             # Model listing
-│   └── prompt_builder.py     # Coaching prompt construction
-├── storage/
-│   ├── reference_store.py    # Reference profile persistence (JSON)
-│   ├── session_store.py      # Session history (SQLite)
-│   └── settings_store.py     # App settings persistence
-└── requirements.txt
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Pose estimation (browser) | [MediaPipe Tasks Vision](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) WASM + GPU |
-| Frontend | Vanilla JS, Chart.js, Marked.js |
-| Backend | FastAPI, NumPy |
-| AI coaching | OpenRouter API (Claude, GPT, etc.) |
-| Storage | JSON files (references), SQLite (sessions) |
 
 ---
 
